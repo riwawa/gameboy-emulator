@@ -1,0 +1,54 @@
+# Compiled binaries
+*.exe
+*.out
+*.app
+*.elf
+*.hex
+*.bin
+
+# Object files and libraries
+*.o
+*.a
+*.so
+*.dylib
+*.d
+
+# Build directories
+build/
+bin/
+dist/
+cmake-build-*/
+tests/
+
+# Debugging and profiling
+*.dSYM/
+*.gcda
+*.gcno
+*.gcov
+*.profraw
+*.profdata
+core
+core.*
+
+# macOS
+.DS_Store
+.AppleDouble
+
+# Editor files
+.vscode/*
+!.vscode/extensions.json
+.idea/
+*.swp
+*.swo
+*~
+
+# Game Boy ROMs
+*.gb
+*.gbc
+*.sav
+*.srm
+
+# Temporary files
+*.tmp
+*.log
+*.bak
