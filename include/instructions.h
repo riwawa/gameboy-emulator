@@ -23,6 +23,7 @@ typedef enum {
     AM_MR_D8,
     AM_MR,
     AM_A16_R,
+    AM_JR,
     AM_R_A16
 } addr_mode;
 
@@ -55,7 +56,6 @@ typedef enum {
     IN_RRCA,
     IN_STOP,
     IN_RLA,
-    IN_JR,
     IN_RRA,
     IN_DAA,
     IN_CPL,
@@ -93,7 +93,24 @@ typedef enum {
     IN_SRL,
     IN_BIT, 
     IN_RES, 
-    IN_SET
+    IN_RET_NZ,
+    IN_RET_Z,
+    IN_RET_NC,
+    IN_RET_C,
+    IN_JP_NZ,
+    IN_JP_Z,
+    IN_JP_NC,
+    IN_JP_C,
+    IN_SET,
+    IN_JR,
+    IN_JR_NZ,
+    IN_JR_Z,
+    IN_JR_NC,
+    IN_JR_C,
+    IN_CALL_NZ,
+    IN_CALL_Z,
+    IN_CALL_NC,
+    IN_CALL_C
 } in_type;
 
 typedef enum {
@@ -111,6 +128,6 @@ typedef struct {
 
 instruction *instruction_by_opcode(uint8_t opcode);
 void instructions_init(void);
-char *inst_name(in_type t);
+const char *inst_name(in_type t);
 
 #endif

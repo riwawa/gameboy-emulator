@@ -11,7 +11,11 @@ typedef struct {
 } Bus;
 
 void bus_init(Bus *bus, Cartridge *cart);
+
 uint8_t bus_read(Bus *bus, uint16_t address);
 void bus_write(Bus *bus, uint16_t address, uint8_t value);
+
+uint16_t bus_read16(Bus *bus, uint16_t address);
+void bus_write16(Bus *bus, uint16_t address, uint16_t value);
 
 #endif

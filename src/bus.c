@@ -28,17 +28,44 @@ void bus_init(Bus *bus, Cartridge *cart) {
     memset(bus->wram, 0x00, sizeof(bus->wram));
     memset(bus->hram, 0x00, sizeof(bus->hram));
 }
-uint8_t bus_read(Bus *bus, uint16_t address){
-    if (address>0x8000){
-        //ROM DATA
-        return cart_read(address);
+uint8_t bus_read(Bus *bus, uint16_t address) {
+    if (!bus) return 0xFF;
+
+    if (address < 0x8000) {
+        return cartridge_read(bus->cart, address);
     }
+    if (address >= 0xC000 && address <= 0xDFFF) {
+        return bus->wram[address - 0xC000];
+    }
+    if (address >= 0xFF80 && address <= 0xFFFE) {
+        return bus->hram[address - 0xFF80];
+    }
+    return 0xFF;
 }
 void bus_write(Bus *bus, uint16_t address, uint8_t value){
+    if (!bus) return; 
     if (address<0x8000){
         //ROM DATA
-        cart_write(address, value);
+        cartridge_write(bus->cart, address, value);
         return;
     }
-    
+    if (address >= 0xC000 && address <= 0xDFFF) {
+        bus->wram[address - 0xC000] = value;
+        return;
+    }
+
+    if (address >= 0xFF80 && address <= 0xFFFE) {
+        bus->hram[address - 0xFF80] = value;
+        return;
+    }
+}
+uint16_t bus_read16(Bus *bus, uint16_t address) {
+    uint16_t lo = bus_read(bus, address);
+    uint16_t hi = bus_read(bus, (uint16_t)(address + 1));
+
+    return lo | (hi << 8);
+}
+void bus_write16(Bus *bus, uint16_t address, uint16_t value) {
+    bus_write(bus, address, value & 0xFF);
+    bus_write(bus, (uint16_t)(address + 1), (value >> 8) & 0xFF);
 }

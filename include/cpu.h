@@ -5,6 +5,7 @@
 #include <stdint.h>
 #include <stdbool.h>
 #include "instructions.h"
+#include "bus.h"
 
 typedef struct {
     uint8_t a;
@@ -27,13 +28,13 @@ typedef struct {
     uint8_t current_opcode;
 
     const instruction *current_instruction;
+    Bus *bus;
 
     bool dest_is_mem;
     bool halted;
     bool stepping;
 } cpu_context;
 
-void cpu_init(void);
+void cpu_init(Bus *bus);
 bool cpu_step(void);
-
 #endif
