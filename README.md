@@ -60,7 +60,7 @@ The long-term goal is to bring the emulator to a dedicated embedded platform and
 - [GBDev Opcode Tables](https://gbdev.io/gb-opcodes/optables/) — CPU instruction reference
 - [Game Boy CPU Manual](https://marc.rawer.de/Gameboy/Docs/GBCPUman.pdf) — CPU reference
 - [Code — Charles Petzold](https://www.charlespetzold.com/books/code/) — Computer hardware and software fundamentals
-- [Low Level Devel](https://www.youtube.com/playlist?list=PLVxiWMqQvhg_yk4qy2cSC3457wZJga_e5) - Youtube Emulator coURSE
+- [Low Level Devel](https://www.youtube.com/playlist?list=PLVxiWMqQvhg_yk4qy2cSC3457wZJga_e5) - Youtube Emulator COURSE
 
 ## Disclaimer
 This is an independent educational project and is not affiliated with or endorsed by Nintendo.
