@@ -2,6 +2,7 @@
 #include "cartridge.h"
 #include "lcd.h"
 #include "timer.h"
+#include "apu.h"
 #include "joypad.h"
 #include "hal.h"
 #include <string.h>
@@ -62,6 +63,7 @@ uint8_t bus_read(Bus *bus, uint16_t address) {
     if (address >= 0xFE00 && address <= 0xFE9F) return bus->oam[address - 0xFE00];
     if (address == 0xFF00) return joypad_read();
     if (address >= 0xFF04 && address <= 0xFF07) return timer_read(address);
+    if (address >= 0xFF10 && address <= 0xFF3F) return apu_read(address);
     if (address >= 0xFF40 && address <= 0xFF4B) return lcd_read(address);
     if (address == 0xFF03 || (address >= 0xFF08 && address <= 0xFF0E) || address >= 0xFF4C) return 0xFF;
     if (address >= 0xFF00 && address <= 0xFF7F) return bus->io[address - 0xFF00];
@@ -100,10 +102,11 @@ void bus_write(Bus *bus, uint16_t address, uint8_t value){
     if (address >= 0xFE00 && address <= 0xFE9F) { bus->oam[address - 0xFE00] = value; return; }
     if (address == 0xFF00) { joypad_write(value); return; }
     if (address >= 0xFF04 && address <= 0xFF07) { timer_write(address, value); return; }
+    if (address >= 0xFF10 && address <= 0xFF3F) { apu_write(address, value); return; }
     if (address >= 0xFF40 && address <= 0xFF4B) { lcd_write(address, value); return; }
     if (address == 0xFF02 && value == 0x81) { hal_debug_putc((char)bus->io[0x01]); }  // serial
     if (address == 0xFF03 || (address >= 0xFF08 && address <= 0xFF0E) || address >= 0xFF4C) {
-        if (address <= 0xFF7F) return;                 // registrador que não existe no DMG: ignora
+        if (address <= 0xFF7F) return;              
     }
     if (address >= 0xFF00 && address <= 0xFF7F) { bus->io[address - 0xFF00] = value; return; }
 }
