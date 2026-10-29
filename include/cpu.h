@@ -29,7 +29,10 @@ typedef struct {
 
     const instruction *current_instruction;
     Bus *bus;
-
+    bool ime;
+    uint8_t ime_enable_delay;
+    bool stopped;
+    bool halt_bug;
     bool dest_is_mem;
     bool halted;
     bool stepping;

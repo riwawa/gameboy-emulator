@@ -486,12 +486,292 @@ static bool proc_ret_cond(cpu_context *cpu, bool condition) {
 
     return true;
 }
+static bool proc_rlca(cpu_context *cpu) {
+    uint8_t a = cpu->regs.a;
+    uint8_t carry = (a >> 7) & 1;
+
+    cpu->regs.a = (uint8_t)((a << 1) | carry);
+    cpu_set_flags(cpu, 0, 0, 0, carry);
+
+    return true;
+}
+
+static bool proc_rrca(cpu_context *cpu) {
+    uint8_t a = cpu->regs.a;
+    uint8_t carry = a & 1;
+
+    cpu->regs.a = (uint8_t)((a >> 1) | (carry << 7));
+    cpu_set_flags(cpu, 0, 0, 0, carry);
+
+    return true;
+}
+
+static bool proc_rla(cpu_context *cpu) {
+    uint8_t a = cpu->regs.a;
+    uint8_t old_carry = (cpu->regs.f & 0x10) ? 1 : 0;
+    uint8_t new_carry = (a >> 7) & 1;
+
+    cpu->regs.a = (uint8_t)((a << 1) | old_carry);
+    cpu_set_flags(cpu, 0, 0, 0, new_carry);
+
+    return true;
+}
+
+static bool proc_rra(cpu_context *cpu) {
+    uint8_t a = cpu->regs.a;
+    uint8_t old_carry = (cpu->regs.f & 0x10) ? 1 : 0;
+    uint8_t new_carry = a & 1;
+
+    cpu->regs.a = (uint8_t)((a >> 1) | (old_carry << 7));
+    cpu_set_flags(cpu, 0, 0, 0, new_carry);
+
+    return true;
+}
+static bool proc_cpl(cpu_context *cpu) {
+    cpu->regs.a = (uint8_t)~cpu->regs.a;
+
+    cpu_set_flags(cpu, -1, 1, 1, -1);
+
+    return true;
+}
+static bool proc_scf(cpu_context *cpu) {
+    cpu_set_flags(cpu, -1, 0, 0, 1);
+
+    return true;
+}
+static bool proc_ccf(cpu_context *cpu) {
+    bool carry = (cpu->regs.f & 0x10) != 0;
+
+    cpu_set_flags(cpu, -1, 0, 0, !carry);
+
+    return true;
+}
+static bool proc_daa(cpu_context *cpu) {
+    uint8_t a = cpu->regs.a;
+    uint8_t f = cpu->regs.f;
+
+    bool n = (f & 0x40) != 0;
+    bool h = (f & 0x20) != 0;
+    bool c = (f & 0x10) != 0;
+
+    uint8_t adjust = 0;
+    bool new_carry = c;
+
+    if (!n) {
+        // Ajuste após adição.
+        if (h || (a & 0x0F) > 9) {
+            adjust |= 0x06;
+        }
+
+        if (c || a > 0x99) {
+            adjust |= 0x60;
+            new_carry = true;
+        }
+
+        a = (uint8_t)(a + adjust);
+    } else {
+        // Ajuste após subtração.
+        if (h) {
+            adjust |= 0x06;
+        }
+
+        if (c) {
+            adjust |= 0x60;
+        }
+
+        a = (uint8_t)(a - adjust);
+    }
+
+    cpu->regs.a = a;
+
+    cpu_set_flags(
+        cpu,
+        a == 0,       // Z
+        -1,           // N preservada
+        0,            // H sempre zerada
+        new_carry     // C
+    );
+
+    return true;
+}
+static bool proc_cb(cpu_context *cpu) {
+    // Busca o segundo byte da instrução CB.
+    uint8_t opcode = bus_read(cpu->bus, cpu->regs.pc++);
+    emu_cycles(1);
+
+    uint8_t x = opcode >> 6;
+    uint8_t y = (opcode >> 3) & 7;
+    uint8_t z = opcode & 7;
+
+    // Ordem dos registradores na codificação CB.
+    static const reg_type regs[8] = {
+        RT_B, RT_C, RT_D, RT_E,
+        RT_H, RT_L, RT_HL, RT_A
+    };
+
+    bool is_mem = (z == 6);
+    uint16_t address = 0;
+    uint8_t value;
+
+    if (is_mem) {
+        address = cpu_read_reg(cpu, RT_HL);
+        value = bus_read(cpu->bus, address);
+        emu_cycles(1);
+    } else {
+        value = (uint8_t)cpu_read_reg(cpu, regs[z]);
+    }
+
+    uint8_t result = value;
+    uint8_t carry = 0;
+    uint8_t old_carry = (cpu->regs.f & 0x10) ? 1 : 0;
+
+    switch (x) {
+        case 0:
+            // Rotações e shifts.
+            switch (y) {
+                case 0: // RLC
+                    carry = value >> 7;
+                    result = (uint8_t)((value << 1) | carry);
+                    break;
+
+                case 1: // RRC
+                    carry = value & 1;
+                    result = (uint8_t)((value >> 1) | (carry << 7));
+                    break;
+
+                case 2: // RL
+                    carry = value >> 7;
+                    result = (uint8_t)((value << 1) | old_carry);
+                    break;
+
+                case 3: // RR
+                    carry = value & 1;
+                    result = (uint8_t)((value >> 1) | (old_carry << 7));
+                    break;
+
+                case 4: // SLA
+                    carry = value >> 7;
+                    result = (uint8_t)(value << 1);
+                    break;
+
+                case 5: // SRA
+                    carry = value & 1;
+                    result = (uint8_t)(
+                        (value >> 1) | (value & 0x80)
+                    );
+                    break;
+
+                case 6: // SWAP
+                    result = (uint8_t)(
+                        (value << 4) | (value >> 4)
+                    );
+                    carry = 0;
+                    break;
+
+                case 7: // SRL
+                    carry = value & 1;
+                    result = value >> 1;
+                    break;
+            }
+
+            cpu_set_flags(cpu, result == 0, 0, 0, carry);
+            break;
+
+        case 1:
+            // BIT y,r: testa o bit sem modificar o valor.
+            cpu_set_flags(
+                cpu,
+                (value & (1u << y)) == 0,
+                0,
+                1,
+                -1
+            );
+            return true;
+
+        case 2:
+            // RES y,r: limpa o bit y.
+            result = (uint8_t)(value & ~(1u << y));
+            break;
+
+        case 3:
+            // SET y,r: ativa o bit y.
+            result = (uint8_t)(value | (1u << y));
+            break;
+    }
+
+    // BIT já retornou
+    if (is_mem) {
+        bus_write(cpu->bus, address, result);
+        emu_cycles(1);
+    } else {
+        cpu_write_reg(cpu, regs[z], result);
+    }
+
+    return true;
+}
+static bool proc_add_sp(cpu_context *cpu) {
+    uint16_t sp = cpu->regs.sp;
+    uint8_t imm = (uint8_t)cpu->fetched_data;
+    int8_t offset = (int8_t)imm;
+
+    bool h = ((sp & 0x0F) + (imm & 0x0F)) > 0x0F;
+    bool c = ((sp & 0xFF) + imm) > 0xFF;
+
+    cpu->regs.sp = (uint16_t)(sp + offset);
+
+    cpu_set_flags(cpu, 0, 0, h, c);
+    emu_cycles(2);
+
+    return true;
+}
+
+static bool proc_jphl(cpu_context *cpu) {
+    cpu->regs.pc = cpu_read_reg(cpu, RT_HL);
+    return true;
+}
+static bool proc_di(cpu_context *cpu) {
+    cpu->ime = false;
+    cpu->ime_enable_delay = 0;
+    return true;
+}
+
+static bool proc_ei(cpu_context *cpu) {
+    cpu->ime_enable_delay = 2;
+    return true;
+}
+
+static bool proc_reti(cpu_context *cpu) {
+    uint16_t address = stack_pop16(cpu);
+    goto_addr(cpu, address);
+    cpu->ime = true;
+    cpu->ime_enable_delay = 0;
+    return true;
+}
+static bool proc_halt(cpu_context *cpu) {
+    uint8_t ie = bus_read(cpu->bus, 0xFFFF);
+    uint8_t flags = bus_read(cpu->bus, 0xFF0F);
+    uint8_t pending = ie & flags & 0x1F;
+
+    if (!cpu->ime && pending) {
+        cpu->halt_bug = true;
+        cpu->halted = false;
+    } else {
+        cpu->halted = true;
+    }
+
+    return true;
+}
+static bool proc_stop(cpu_context *cpu) {
+    cpu->stopped = true;
+    return true;
+}
 bool cpu_execute(cpu_context *cpu) {
     if (!cpu || !cpu->current_instruction) {
         return false;
     }
     switch (cpu->current_instruction->type) {
-        // Transferência
+        case IN_CB:
+            return proc_cb(cpu);
         case IN_LD:
             return proc_ld(cpu);
         case IN_LDH:
@@ -502,7 +782,6 @@ bool cpu_execute(cpu_context *cpu) {
         case IN_POP:
             return proc_pop(cpu);
             
-        // Aritmética
         case IN_INC:
             return proc_inc(cpu);
 
@@ -510,15 +789,18 @@ bool cpu_execute(cpu_context *cpu) {
             return proc_dec(cpu);
 
         case IN_ADD:
-            if (cpu->current_instruction->reg_1 == RT_HL) {
+            if (cpu->current_instruction->reg_1 == RT_SP)
+                return proc_add_sp(cpu);
+
+            if (cpu->current_instruction->reg_1 == RT_HL)
                 return proc_add_hl(cpu);
-            }
 
             return proc_add(cpu);
 
+        case IN_JPHL:
+            return proc_jphl(cpu);
         case IN_ADC:
             return proc_adc(cpu);
-
 
         case IN_SUB:
             return proc_sub(cpu);
@@ -538,9 +820,9 @@ bool cpu_execute(cpu_context *cpu) {
         case IN_CP:
             return proc_cp(cpu);
 
-        // Controle de fluxo
         case IN_JP:
             return proc_jp(cpu);
+
         case IN_JR:
             return proc_jr(cpu);
 
@@ -592,15 +874,53 @@ bool cpu_execute(cpu_context *cpu) {
 
         case IN_RET_C:
             return proc_ret_cond(cpu, (cpu->regs.f & 0x10) != 0);
+
         // Outras
+        case IN_RLCA:
+            return proc_rlca(cpu);
+
+        case IN_RRCA:
+            return proc_rrca(cpu);
+
+        case IN_RLA:
+            return proc_rla(cpu);
+
+        case IN_RRA:
+            return proc_rra(cpu);
 
         case IN_RST:
             return proc_rst(cpu);
+
         case IN_NOP:
             return proc_nop(cpu);
 
         case IN_RET:
             return proc_ret(cpu);
+
+        case IN_CPL:
+            return proc_cpl(cpu);
+
+        case IN_SCF:
+            return proc_scf(cpu);
+
+        case IN_CCF:
+            return proc_ccf(cpu);
+
+        case IN_DAA:
+            return proc_daa(cpu);
+        case IN_DI:
+            return proc_di(cpu);
+
+        case IN_EI:
+            return proc_ei(cpu);
+
+        case IN_RETI:
+            return proc_reti(cpu);
+
+        case IN_HALT:
+            return proc_halt(cpu);
+        case IN_STOP:
+            return proc_stop(cpu);
         default:
             fprintf(stderr, "Instruction not implemented: %s\n",
                     inst_name(cpu->current_instruction->type));

@@ -14,7 +14,7 @@ static instruction instructions[0x100] = {
     [0x00] = {.type = IN_NOP,  .mode = AM_IMP},
     [0x07] = {.type = IN_RLCA, .mode = AM_IMP},
     [0x0F] = {.type = IN_RRCA, .mode = AM_IMP},
-    [0x10] = {.type = IN_STOP, .mode = AM_IMP},
+    [0x10] = {.type = IN_STOP, .mode = AM_STOP},
     [0x17] = {.type = IN_RLA,  .mode = AM_IMP},
     [0x1F] = {.type = IN_RRA,  .mode = AM_IMP},
     [0x27] = {.type = IN_DAA,  .mode = AM_IMP},
@@ -179,6 +179,56 @@ void instructions_init(void) {
             };
         }
     }
+    // LD (a16),A  -- 0xEA
+    instructions[0xEA] = (instruction) {
+        .type = IN_LD,
+        .mode = AM_A16_R,
+        .reg_2 = RT_A
+    };
+
+    // LD A,(a16)  -- 0xFA
+    instructions[0xFA] = (instruction) {
+        .type = IN_LD,
+        .mode = AM_R_A16,
+        .reg_1 = RT_A
+    };
+
+    // LD (a16),SP -- 0x08
+    instructions[0x08] = (instruction) {
+        .type = IN_LD,
+        .mode = AM_A16_R,
+        .reg_2 = RT_SP
+    };
+
+    // LD (C),A    -- 0xE2
+    instructions[0xE2] = (instruction) {
+        .type = IN_LD,
+        .mode = AM_MC_R,
+        .reg_2 = RT_A
+    };
+
+    // LD A,(C)    -- 0xF2
+    instructions[0xF2] = (instruction) {
+        .type = IN_LD,
+        .mode = AM_R_MC,
+        .reg_1 = RT_A
+    };
+
+    // LD SP,HL    -- 0xF9
+    instructions[0xF9] = (instruction) {
+        .type = IN_LD,
+        .mode = AM_R_R,
+        .reg_1 = RT_SP,
+        .reg_2 = RT_HL
+    };
+
+    // LD HL,SP+e8 -- 0xF8
+    instructions[0xF8] = (instruction) {
+        .type = IN_LD,
+        .mode = AM_HL_SPR,
+        .reg_1 = RT_HL,
+        .reg_2 = RT_SP
+    };
 
     // INC rr / DEC rr (16 bits)
     // INC: 03 13 23 33
@@ -228,7 +278,22 @@ void instructions_init(void) {
             .reg_2 = regs[r]
         };
     }
+    // ADD SP,e8
+    instructions[0xE8] = (instruction){
+        .type = IN_ADD,
+        .mode = AM_SP_R8,
+        .reg_1 = RT_SP
+    };
+    instructions[0xD9] = (instruction){
+        .type = IN_RETI,
+        .mode = AM_IMP
+    };
 
+    // JP HL
+    instructions[0xE9] = (instruction){
+        .type = IN_JPHL,
+        .mode = AM_IMP
+    };
     // ADC A,r8 / ADC A,[HL]
     // Opcodes: 88 a 8F
     for (int r = 0; r < 8; r++) {
@@ -494,9 +559,49 @@ void instructions_init(void) {
         };
     }
 
-    // PUSH rr / POP rr
-    // JR / JP condicional / CALL / RET / RST
-    // Instruções CB-prefixed
+    instructions[0x02] = (instruction){
+        .type = IN_LD, .mode = AM_MR_R,
+        .reg_1 = RT_BC, .reg_2 = RT_A
+    };
+
+    instructions[0x12] = (instruction){
+        .type = IN_LD, .mode = AM_MR_R,
+        .reg_1 = RT_DE, .reg_2 = RT_A
+    };
+
+    instructions[0x0A] = (instruction){
+        .type = IN_LD, .mode = AM_R_MR,
+        .reg_1 = RT_A, .reg_2 = RT_BC
+    };
+
+    instructions[0x1A] = (instruction){
+        .type = IN_LD, .mode = AM_R_MR,
+        .reg_1 = RT_A, .reg_2 = RT_DE
+    };
+
+    instructions[0x22] = (instruction){
+        .type = IN_LD, .mode = AM_HLI_R,
+        .reg_1 = RT_HL, .reg_2 = RT_A
+    };
+
+    instructions[0x2A] = (instruction){
+        .type = IN_LD, .mode = AM_R_HLI,
+        .reg_1 = RT_A, .reg_2 = RT_HL
+    };
+
+    instructions[0x32] = (instruction){
+        .type = IN_LD, .mode = AM_HLD_R,
+        .reg_1 = RT_HL, .reg_2 = RT_A
+    };
+
+    instructions[0x3A] = (instruction){
+        .type = IN_LD, .mode = AM_R_HLD,
+        .reg_1 = RT_A, .reg_2 = RT_HL
+    };
+    instructions[0xCB] = (instruction){
+        .type = IN_CB,
+        .mode = AM_IMP
+    };
 }   
 
 instruction *instruction_by_opcode(uint8_t opcode) {

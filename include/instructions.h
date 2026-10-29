@@ -20,10 +20,14 @@ typedef enum {
     AM_D16,
     AM_D8,
     AM_D16_R,
+    AM_SP_R8,  
     AM_MR_D8,
+    AM_STOP,
     AM_MR,
     AM_A16_R,
     AM_JR,
+    AM_MC_R,
+    AM_R_MC,
     AM_R_A16
 } addr_mode;
 

@@ -6,7 +6,13 @@
 // Buscar opcode e operandos
 
 bool cpu_fetch_instruction(cpu_context *cpu) {
-    cpu->current_opcode = bus_read(cpu->bus, cpu->regs.pc++);
+    cpu->current_opcode = bus_read(cpu->bus, cpu->regs.pc);
+
+    if (cpu->halt_bug) {
+        cpu->halt_bug = false;
+    } else {
+        cpu->regs.pc++;
+    }
     emu_cycles(1);
     cpu->current_instruction = instruction_by_opcode(cpu->current_opcode);
 
@@ -60,6 +66,10 @@ bool cpu_fetch_data(cpu_context *cpu) {
 
             return true;
         }
+        case AM_STOP:
+            cpu->regs.pc++;
+            return true;
+            
         case AM_MR_D8: {
             cpu->fetched_data = bus_read(cpu->bus, cpu->regs.pc++);
             emu_cycles(1);
@@ -112,12 +122,58 @@ bool cpu_fetch_data(cpu_context *cpu) {
 
             return true;
         }
+        case AM_A16_R: {
+            uint8_t low = bus_read(cpu->bus, cpu->regs.pc++);
+            emu_cycles(1);
 
+            uint8_t high = bus_read(cpu->bus, cpu->regs.pc++);
+            emu_cycles(1);
+
+            cpu->mem_dest = ((uint16_t)high << 8) | low;
+            cpu->fetched_data = cpu_read_reg(cpu, cpu->current_instruction->reg_2);
+            cpu->dest_is_mem = true;
+            return true;
+        }
+        case AM_R_A16: {
+            uint8_t low = bus_read(cpu->bus, cpu->regs.pc++);
+            emu_cycles(1);
+
+            uint8_t high = bus_read(cpu->bus, cpu->regs.pc++);
+            emu_cycles(1);
+
+            uint16_t address = ((uint16_t)high << 8) | low;
+
+            cpu->fetched_data = bus_read(cpu->bus, address);
+            emu_cycles(1);
+
+            return true;
+        }
         case AM_JR:
             cpu->fetched_data = bus_read(cpu->bus, cpu->regs.pc++);
             emu_cycles(1);
             return true;
 
+        case AM_MC_R: {
+            cpu->mem_dest = 0xFF00 | cpu->regs.c;
+            cpu->fetched_data = cpu->regs.a;
+            cpu->dest_is_mem = true;
+            return true;
+        }
+
+        case AM_R_MC: {
+            uint16_t address = 0xFF00 | cpu->regs.c;
+            cpu->fetched_data = bus_read(cpu->bus, address);
+            emu_cycles(1);
+            return true;
+        }
+        case AM_HL_SPR:
+            cpu->fetched_data = bus_read(cpu->bus, cpu->regs.pc++);
+            emu_cycles(1);
+            return true;
+        case AM_SP_R8:
+            cpu->fetched_data = bus_read(cpu->bus, cpu->regs.pc++);
+            emu_cycles(1);
+            return true;
         default:
             fprintf(stderr, "Addressing mode not implemented: %d\n", cpu->current_instruction->mode);
             return false;

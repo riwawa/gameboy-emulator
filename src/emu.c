@@ -1,4 +1,3 @@
-
 #include <stdio.h>
 #include "emu.h"
 #include "cartridge.h"

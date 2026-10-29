@@ -8,6 +8,8 @@ typedef struct {
     Cartridge *cart;
     uint8_t wram[0x2000];
     uint8_t hram[0x7F];
+    uint8_t ie;
+    uint8_t if_reg;
 } Bus;
 
 void bus_init(Bus *bus, Cartridge *cart);

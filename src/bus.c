@@ -25,8 +25,11 @@ https://gbdev.io/pandocs/Memory_Map.html#memory-map
 
 void bus_init(Bus *bus, Cartridge *cart) {
     bus->cart = cart;
+
     memset(bus->wram, 0x00, sizeof(bus->wram));
     memset(bus->hram, 0x00, sizeof(bus->hram));
+    bus->ie = 0x00;
+    bus->if_reg = 0;
 }
 uint8_t bus_read(Bus *bus, uint16_t address) {
     if (!bus) return 0xFF;
@@ -37,8 +40,14 @@ uint8_t bus_read(Bus *bus, uint16_t address) {
     if (address >= 0xC000 && address <= 0xDFFF) {
         return bus->wram[address - 0xC000];
     }
+    if (address == 0xFFFF) {
+        return bus->ie;
+    }
     if (address >= 0xFF80 && address <= 0xFFFE) {
         return bus->hram[address - 0xFF80];
+    }
+    if (address == 0xFF0F) {
+        return bus->if_reg | 0xE0;
     }
     return 0xFF;
 }
@@ -56,6 +65,14 @@ void bus_write(Bus *bus, uint16_t address, uint8_t value){
 
     if (address >= 0xFF80 && address <= 0xFFFE) {
         bus->hram[address - 0xFF80] = value;
+        return;
+    }
+    if (address == 0xFFFF) {
+        bus->ie = value;
+        return;
+    }
+    if (address == 0xFF0F) {
+        bus->if_reg = value & 0x1F;
         return;
     }
 }
