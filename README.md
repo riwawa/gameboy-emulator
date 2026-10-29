@@ -75,15 +75,6 @@ Porting to a microcontroller means implementing those functions for a real displ
 - The PPU runs 4 dots per M-cycle and a frame is 70224 dots (17556 M-cycles)
 - The cartridge ROM is accessed through a single read function, so it can live in flash on an embedded target
 
-## Roadmap
-
-- [ ] `emu_run_frame()` so the platform owns the main loop
-- [ ] Battery-backed save files
-- [ ] MBC3 and MBC5
-- [ ] Audio (APU)
-- [ ] Variable mode 3 length and gradual OAM DMA
-- [ ] Port to an embedded board (display driver, buttons, ROM in flash)
-
 ## References
 
 - [Pan Docs](https://gbdev.io/pandocs/): Game Boy technical documentation

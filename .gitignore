@@ -58,3 +58,10 @@ tests/gameboy
 tests/test_cartridge
 tests/test_cartridge_debug
 tests/test_cartridge_san
+!tests/
+!tests/**/*.gb
+tests/tetris.gb
+tests/roms/
+tests/Nintendo*/
+tests/gb-test-roms/
+tela.bmp
