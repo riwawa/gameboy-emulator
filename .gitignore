@@ -7,14 +7,12 @@
 *.bin
 
 # Object files and libraries
-*.o
 *.a
 *.so
 *.dylib
 *.d
 
 # Build directories
-build/
 bin/
 dist/
 cmake-build-*/
@@ -52,3 +50,11 @@ core.*
 *.tmp
 *.log
 *.bak
+
+build/
+*.o
+.DS_Store
+tests/gameboy
+tests/test_cartridge
+tests/test_cartridge_debug
+tests/test_cartridge_san
