@@ -17,12 +17,22 @@ typedef struct {
     size_t rom_size;
     CartridgeHeader header;
 
+    uint8_t *ram;
+    size_t ram_size;
+
+    bool mbc1;          
+    bool ram_enable;    
+    uint8_t bank1;      
+    uint8_t bank2;      
+    uint8_t mode;      
+    uint32_t rom_banks; 
 } Cartridge;
 
 bool cartridge_load(Cartridge *cart, const char *path);
 uint8_t cartridge_read(const Cartridge *cart, uint16_t address);
 void cartridge_free(Cartridge *cart);
 void cartridge_write(Cartridge *cart, uint16_t address, uint8_t value);
+uint8_t cartridge_ram_read(const Cartridge *cart, uint16_t address);              // A000-BFFF
+void cartridge_ram_write(Cartridge *cart, uint16_t address, uint8_t value);
 
 #endif
-

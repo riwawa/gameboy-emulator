@@ -1,7 +1,11 @@
 #include "../include/bus.h"
 #include "cartridge.h"
-
+#include "lcd.h"
+#include "timer.h"
+#include "joypad.h"
+#include "hal.h"
 #include <string.h>
+#include <stdio.h>
 /*
 Memory Map:
 https://gbdev.io/pandocs/Memory_Map.html#memory-map
@@ -28,8 +32,13 @@ void bus_init(Bus *bus, Cartridge *cart) {
 
     memset(bus->wram, 0x00, sizeof(bus->wram));
     memset(bus->hram, 0x00, sizeof(bus->hram));
+    memset(bus->vram, 0x00, sizeof(bus->vram));
+    memset(bus->eram, 0x00, sizeof(bus->eram));
+    memset(bus->oam,  0x00, sizeof(bus->oam));
+    memset(bus->io,   0x00, sizeof(bus->io));
     bus->ie = 0x00;
     bus->if_reg = 0;
+    bus->io[0] = 0xFF;
 }
 uint8_t bus_read(Bus *bus, uint16_t address) {
     if (!bus) return 0xFF;
@@ -46,9 +55,16 @@ uint8_t bus_read(Bus *bus, uint16_t address) {
     if (address >= 0xFF80 && address <= 0xFFFE) {
         return bus->hram[address - 0xFF80];
     }
-    if (address == 0xFF0F) {
-        return bus->if_reg | 0xE0;
-    }
+    if (address == 0xFF0F) return bus->if_reg | 0xE0;
+    if (address >= 0x8000 && address <= 0x9FFF) return bus->vram[address - 0x8000];
+    if (address >= 0xA000 && address <= 0xBFFF) return cartridge_ram_read(bus->cart, address);
+    if (address >= 0xE000 && address <= 0xFDFF) return bus->wram[address - 0xE000]; // echo
+    if (address >= 0xFE00 && address <= 0xFE9F) return bus->oam[address - 0xFE00];
+    if (address == 0xFF00) return joypad_read();
+    if (address >= 0xFF04 && address <= 0xFF07) return timer_read(address);
+    if (address >= 0xFF40 && address <= 0xFF4B) return lcd_read(address);
+    if (address == 0xFF03 || (address >= 0xFF08 && address <= 0xFF0E) || address >= 0xFF4C) return 0xFF;
+    if (address >= 0xFF00 && address <= 0xFF7F) return bus->io[address - 0xFF00];
     return 0xFF;
 }
 void bus_write(Bus *bus, uint16_t address, uint8_t value){
@@ -75,6 +91,21 @@ void bus_write(Bus *bus, uint16_t address, uint8_t value){
         bus->if_reg = value & 0x1F;
         return;
     }
+    if (address >= 0x8000 && address <= 0x9FFF) { 
+        bus->vram[address - 0x8000] = value; 
+        return; 
+    }
+    if (address >= 0xA000 && address <= 0xBFFF) { cartridge_ram_write(bus->cart, address, value); return; }
+    if (address >= 0xE000 && address <= 0xFDFF) { bus->wram[address - 0xE000] = value; return; }
+    if (address >= 0xFE00 && address <= 0xFE9F) { bus->oam[address - 0xFE00] = value; return; }
+    if (address == 0xFF00) { joypad_write(value); return; }
+    if (address >= 0xFF04 && address <= 0xFF07) { timer_write(address, value); return; }
+    if (address >= 0xFF40 && address <= 0xFF4B) { lcd_write(address, value); return; }
+    if (address == 0xFF02 && value == 0x81) { hal_debug_putc((char)bus->io[0x01]); }  // serial
+    if (address == 0xFF03 || (address >= 0xFF08 && address <= 0xFF0E) || address >= 0xFF4C) {
+        if (address <= 0xFF7F) return;                 // registrador que não existe no DMG: ignora
+    }
+    if (address >= 0xFF00 && address <= 0xFF7F) { bus->io[address - 0xFF00] = value; return; }
 }
 uint16_t bus_read16(Bus *bus, uint16_t address) {
     uint16_t lo = bus_read(bus, address);
