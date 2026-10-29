@@ -23,6 +23,7 @@ const emu_context *emu_get_context(void) {
 void emu_cycles(uint32_t cpu_cycles) {
     for (uint32_t i = 0; i < cpu_cycles; i++) {
         timer_tick();                              // 1x por ciclo-M
+        cartridge_tick(&cart);                     // relógio do MBC3 
         apu_tick();
         for (int d = 0; d < 4; d++) ppu_tick();    // 4 pontos da PPU por ciclo-M
         ctx.cycles++;

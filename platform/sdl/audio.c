@@ -46,7 +46,6 @@ void audio_quit(void) {
 void hal_audio_push(const int16_t *stereo, unsigned frames) {
     if (!dev) return;      
     static int n = 0;
-    if (n++ < 3) fprintf(stderr, "push: %u amostras, fila=%u\n", frames, SDL_GetQueuedAudioSize(dev));                   
     Uint32 queued = SDL_GetQueuedAudioSize(dev);
     if (queued > MAX_LEVEL) return;
     SDL_QueueAudio(dev, stereo, frames * BYTES_PER_FRAME);

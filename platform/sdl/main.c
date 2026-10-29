@@ -3,6 +3,7 @@
 #include "emu.h"
 #include "ui.h"
 #include "audio_sdl.h"
+#include "save_sdl.h"
 
 static uint8_t *read_file(const char *path, size_t *size) {
     FILE *f = fopen(path, "rb");
@@ -29,6 +30,7 @@ int main(int argc, char **argv) {
         fprintf(stderr, "Failed to read ROM: %s\n", argv[1]);
         return 1;
     }
+    save_set_path(argv[1]);                 
     if (!emu_init(rom, size)) {
         fprintf(stderr, "Failed to load ROM: %s\n", argv[1]);
         free(rom);
@@ -39,6 +41,7 @@ int main(int argc, char **argv) {
         free(rom);
         return 1;
     }
+
     if (!audio_init()) fprintf(stderr, "Sem audio: o jogo roda mudo.\n");
 
     int status = 0;
@@ -55,10 +58,9 @@ int main(int argc, char **argv) {
     const emu_context *c = emu_get_context();
     printf("Instructions: %llu\n", (unsigned long long)c->ticks);
     printf("M-cycles: %llu\n", (unsigned long long)c->cycles);
-    
+
     audio_quit();
     ui_quit();
-
     emu_shutdown();
     free(rom);
     return status;
