@@ -2,6 +2,7 @@
 #define EMU_H
 
 #include <stdbool.h>
+#include <stddef.h>
 #include <stdint.h>
 
 typedef struct {
@@ -11,8 +12,11 @@ typedef struct {
     uint64_t cycles;
 } emu_context;
 
-int emu_run(const char *rom_path);
-void emu_cycles(uint32_t cpu_cycles);
+bool emu_init(const uint8_t *rom, size_t size);   
+bool emu_run_frame(void);                      
+void emu_shutdown(void);
+const char *emu_title(void);                      
+void emu_cycles(uint32_t cpu_cycles);             
 const emu_context *emu_get_context(void);
 
 #endif

@@ -1,5 +1,4 @@
 #include "joypad.h"
-#include <stdio.h>
 
 static Bus *bus_ref;
 static uint8_t select_bits = 0x30;   
@@ -38,8 +37,6 @@ void joypad_init(Bus *bus) {
 }
 
 void joypad_write(uint8_t value) {
-    static int n = 0;
-    if (n++ < 12) fprintf(stderr, "FF00 <- %02X\n", value);   // diagnostico
     select_bits = value & 0x30;
     update();
 }

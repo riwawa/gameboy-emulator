@@ -20,66 +20,53 @@ static void parse_header(Cartridge *cart){
     cart->header.title[title_len]='\0';
 }
 
-bool cartridge_load(Cartridge *cart, const char *path) {
-    if(!cart||!path) return false;
+bool cartridge_init(Cartridge *cart, const uint8_t *rom, size_t size) {
+    if (!cart || !rom) return false;
+    if (size < 0x8000 || (size % 0x4000) != 0) return false;
 
-    FILE *file = fopen(path, "rb");
-    if (!file) return false;
-
-    if (fseek(file,0,SEEK_END)!=0){
-        fclose(file);
-        return false;
-    }
-
-    long file_size = ftell(file);
-    if (file_size < 0x8000 || (file_size % 0x4000) != 0) {
-        fclose(file);
-        return false;
-    }
-    if (fseek(file,0,SEEK_SET)!=0){
-        fclose(file);
-        return false;
-    }
-    
-    uint8_t *rom = malloc((size_t)file_size);
-    if(!rom){
-        fclose(file);
-        return false;
-    }
-
-    size_t read_size = fread(rom, 1, (size_t)file_size, file);
-    fclose(file);
-
-    if (read_size!=(size_t)file_size){
-        free(rom);
-        return false;
-    }
-
-    free(cart->rom);
-    free(cart->ram);
     *cart = (Cartridge){0};
     cart->rom = rom;
-    cart->rom_size = (size_t)file_size;
-    cart->rom_banks = (uint32_t)(file_size / 0x4000);
+    cart->rom_size = size;
+    cart->rom_banks = (uint32_t)(size / 0x4000);
     parse_header(cart);
 
     uint8_t t = cart->header.type;
     if (t > 0x03) {
         fprintf(stderr, "Tipo de cartucho 0x%02X ainda nao suportado\n", t);
-        cartridge_free(cart);
+        *cart = (Cartridge){0};
         return false;
     }
     cart->mbc1 = (t != 0x00);
     cart->bank1 = 1;
 
-    // Tamanho da RAM (código 0x0149)
     static const uint32_t ram_kb[6] = {0, 2, 8, 32, 128, 64};
     uint8_t rc = cart->header.ram_size_code;
     if (rc < 6 && (t == 0x02 || t == 0x03 || t == 0x00)) cart->ram_size = ram_kb[rc] * 1024u;
     if (cart->ram_size) {
         cart->ram = calloc(1, cart->ram_size);
-        if (!cart->ram) { cartridge_free(cart); return false; }
+        if (!cart->ram) { *cart = (Cartridge){0}; return false; }
     }
+    return true;
+}
+
+bool cartridge_load(Cartridge *cart, const char *path) {
+    if (!cart || !path) return false;
+
+    FILE *file = fopen(path, "rb");
+    if (!file) return false;
+    if (fseek(file, 0, SEEK_END) != 0) { fclose(file); return false; }
+    long file_size = ftell(file);
+    if (file_size < 0 || fseek(file, 0, SEEK_SET) != 0) { fclose(file); return false; }
+
+    uint8_t *rom = malloc((size_t)file_size);
+    if (!rom) { fclose(file); return false; }
+    size_t n = fread(rom, 1, (size_t)file_size, file);
+    fclose(file);
+    if (n != (size_t)file_size || !cartridge_init(cart, rom, (size_t)file_size)) {
+        free(rom);
+        return false;
+    }
+    cart->owns_rom = true;         
     return true;
 }
 
@@ -87,26 +74,26 @@ uint8_t cartridge_read(const Cartridge *cart, uint16_t address) {
     if (!cart||!cart->rom) return 0xFF;
 
     if (address >= 0x8000) return 0xFF;
-    if (!cart->mbc1) return cart->rom[address];            // sem MBC: ROM direta
+    if (!cart->mbc1) return cart->rom[address];           
 
     uint32_t bank;
-    if (address < 0x4000)                                  // janela 0000-3FFF
+    if (address < 0x4000)                               
         bank = cart->mode ? ((uint32_t)cart->bank2 << 5) : 0;
-    else                                                   // janela 4000-7FFF
+    else                                                  
         bank = ((uint32_t)cart->bank2 << 5) | cart->bank1;
-    bank &= cart->rom_banks - 1;                           // ROMs menores "dão a volta"
+    bank &= cart->rom_banks - 1;                        
     return cart->rom[(size_t)bank * 0x4000 + (address & 0x3FFF)];
 }
 void cartridge_free(Cartridge *cart) {
     if(!cart) return;
-    free(cart->rom);
+    if (cart->owns_rom) free((void *)cart->rom);
     free(cart->ram);
     *cart=(Cartridge){0};
 }
 
 void cartridge_write(Cartridge *cart, uint16_t address, uint8_t value) {
     if(!cart||!cart->rom||!cart->mbc1) return;
-    switch (address >> 13) {                       // 0..3 = os 4 blocos de 8 KB da ROM
+    switch (address >> 13) {                      
     case 0: cart->ram_enable = (value & 0x0F) == 0x0A; break;          // 0000-1FFF
     case 1: cart->bank1 = value & 0x1F;                                // 2000-3FFF
             if (cart->bank1 == 0) cart->bank1 = 1; break;
@@ -115,7 +102,6 @@ void cartridge_write(Cartridge *cart, uint16_t address, uint8_t value) {
     }
 }
 
-// Posição na RAM: no modo 1 o bank2 escolhe o banco de 8 KB; no modo 0 é sempre o banco 0.
 static size_t ram_index(const Cartridge *cart, uint16_t address) {
     size_t bank = cart->mode ? cart->bank2 : 0;
     return (bank * 0x2000 + (address - 0xA000)) % cart->ram_size;   // RAM de 2 KB espelha
