@@ -1,67 +1,95 @@
-# Game Boy Emulator
+# Game Boy Emulator (DMG-01)
 
-A Game Boy (DMG-01) emulator written in C, developed from scratch as a learning project in computer architecture, low-level programming, and embedded systems.
+A Game Boy (DMG-01) emulator written in C from scratch, built as a learning project in computer architecture and low-level programming. It is the first stage of a larger goal: running the same emulator core on a **standalone, physical handheld** built on an embedded platform, with its own display, buttons and electronics.
 
-> **Work in progress:** This project is in early development and is not yet capable of running Game Boy games.
+> **Status:** the CPU, interrupts, timer, MBC1 cartridges and the graphics pipeline work and pass the reference test ROMs listed below. There is **no audio yet**, and only ROM-only and MBC1 cartridges are supported.
 
-## Overview
+## Features
 
-The goal of this project is to understand how the original Nintendo Game Boy works by implementing its core components from scratch.
+- Sharp SM83 CPU: full instruction set, interrupts, HALT, EI delay
+- Memory bus with VRAM, WRAM (plus echo), OAM, HRAM and I/O registers
+- Timer (DIV / TIMA / TMA / TAC) based on the 16-bit system counter, including falling-edge quirks and delayed reload
+- PPU: modes 2/3/0/1 timing, LY/LYC and STAT interrupts, background, window, sprites (8x8 and 8x16), palettes, OAM DMA
+- Joypad matrix with interrupt
+- Cartridges: ROM-only and MBC1 (ROM banking, external RAM)
+- SDL2 front end: scaled window, ~59.7 fps pacing, keyboard input, BMP screenshots
 
-Rather than focusing on building a highly optimized emulator, the emphasis is on learning how the hardware operates, including CPU instruction decoding, memory organization, communication between components, and eventually graphics and input handling.
+## Validation
 
-The emulator is the first stage of a larger project: **building a standalone, physical Game Boy-inspired handheld device using an embedded platform**, with its own display, buttons, and supporting electronics.
+The emulator is checked against independent reference suites, not just against itself.
 
-## Development Status
-
-The project is currently in its early stages.
-
-| Component | Status |
+| Suite | Result |
 |---|---|
-| Cartridge loading and ROM header parsing | Initial implementation |
-| Memory bus | In development |
-| SM83 CPU registers and context | Initial implementation |
-| Instruction decoding | In progress |
-| CPU execution | Implemented (passes Blargg cpu_instrs) |
-| Interrupt handling | Planned |
-| PPU (graphics) | Planned |
-| APU (audio) | Planned |
-| Timer and input | Planned |
-| Embedded hardware integration | Long-term goal |
+| [SingleStepTests/sm83](https://github.com/SingleStepTests/sm83) (per-instruction CPU states) | 498 / 500 opcodes (HALT and STOP differ by convention) |
+| Blargg `cpu_instrs` (all 11 + combined 64 KB ROM) | Passed |
+| Blargg `instr_timing`, `mem_timing` | Passed |
+| Mooneye `acceptance/timer/*` | 13 / 13 |
+| Mooneye `emulator-only/mbc1/*` | 12 / 13 (multicart wiring not implemented) |
+| Mooneye `div_timing`, `ei_sequence`, `ei_timing`, `intr_timing`, `halt_*` | Passed |
+| [dmg-acid2](https://github.com/mattcurrie/dmg-acid2) | Pixel-exact |
 
-## Target Hardware & Architecture
+Known gaps: Mooneye `ie_push` and `boot_hwio` fail (no boot ROM state is emulated).
 
-The original Nintendo Game Boy (DMG-01), released in 1989, is an 8-bit handheld console built around the **Sharp SM83 CPU**, a processor often described as Z80-like, although it features its own instruction set and several architectural differences.
+## Build and run
 
-### Original Game Boy (DMG-01) Specifications
+Requirements: a C compiler (clang or gcc), `make` and SDL2 (`brew install sdl2` on macOS).
 
-| Component | Specification |
+```bash
+make
+make run ROM=path/to/game.gb
+```
+
+Controls:
+
+| Key | Button |
 |---|---|
-| CPU | Sharp SM83 (8-bit, Z80-like architecture) |
-| Clock Speed | ~4.19 MHz |
-| Address Space | 64 KB (16-bit addressing) |
-| Work RAM | 8 KB |
-| Video RAM | 8 KB |
-| Display | 160 × 144 pixels |
-| Graphics | 4 shades of gray, displayed as green tones on the original LCD |
-| Audio | 4 sound channels |
-| Cartridge | ROM cartridges with optional memory bank controllers (MBCs) |
+| Arrow keys | D-pad |
+| X | A |
+| Z | B |
+| Enter | Start |
+| Backspace | Select |
+| Esc | Quit |
 
-### Emulator Implementation
+Test ROMs are not included in the repository. Put them under `tests/roms/external/`.
 
-The emulator is being developed from scratch in **C**, with an emphasis on understanding the original hardware rather than relying on existing emulation frameworks.
+## Architecture
 
-The implementation is organized around the console's main components, including the cartridge interface, memory bus, CPU instruction decoding and execution, and eventually the PPU, APU, timers, and input system.
+The code is split into a portable **core** and a thin **platform** layer, so the same core can later be linked into firmware.
 
-The long-term goal is to bring the emulator to a dedicated embedded platform and build a standalone handheld device with a physical display, buttons, and custom electronics.
+```
+include/, src/        core: CPU, bus, PPU, timer, joypad, cartridge
+platform/sdl/         desktop front end (window, input, timing)
+tests/                test ROMs and runners
+```
+
+The core never touches the screen, keyboard or clock. It talks to the outside world through a small hardware abstraction layer (`include/hal.h`):
+
+- `hal_draw_line(y, shades)` receives each finished scanline of 160 pixels (shades 0 to 3)
+- `hal_debug_putc(c)` receives serial output, useful for test ROMs
+
+Porting to a microcontroller means implementing those functions for a real display and serial port, and feeding buttons into the joypad module.
+
+### Design notes
+
+- Per-line rendering: the PPU draws a whole scanline when mode 3 ends, which keeps it fast enough for small targets
+- The PPU runs 4 dots per M-cycle and a frame is 70224 dots (17556 M-cycles)
+- The cartridge ROM is accessed through a single read function, so it can live in flash on an embedded target
+
+## Roadmap
+
+- [ ] `emu_run_frame()` so the platform owns the main loop
+- [ ] Battery-backed save files
+- [ ] MBC3 and MBC5
+- [ ] Audio (APU)
+- [ ] Variable mode 3 length and gradual OAM DMA
+- [ ] Port to an embedded board (display driver, buttons, ROM in flash)
+
 ## References
 
-- [Pan Docs](https://gbdev.io/pandocs/) — Game Boy technical documentation
-- [GBDev Opcode Tables](https://gbdev.io/gb-opcodes/optables/) — CPU instruction reference
-- [Game Boy CPU Manual](https://marc.rawer.de/Gameboy/Docs/GBCPUman.pdf) — CPU reference
-- [Code — Charles Petzold](https://www.charlespetzold.com/books/code/) — Computer hardware and software fundamentals
-- [Low Level Devel](https://www.youtube.com/playlist?list=PLVxiWMqQvhg_yk4qy2cSC3457wZJga_e5) - Youtube Emulator COURSE
+- [Pan Docs](https://gbdev.io/pandocs/): Game Boy technical documentation
+- [GBDev Opcode Tables](https://gbdev.io/gb-opcodes/optables/): CPU instruction reference
+- [Game Boy CPU Manual](https://marc.rawer.de/Gameboy/Docs/GBCPUman.pdf)
+- [Gekkio's Mooneye Test Suite](https://github.com/Gekkio/mooneye-test-suite) and [Blargg's test ROMs](https://github.com/retrio/gb-test-roms)
+- [Low Level Devel](https://www.youtube.com/playlist?list=PLVxiWMqQvhg_yk4qy2cSC3457wZJga_e5): emulator video course
+- [Code](https://www.charlespetzold.com/books/code/) by Charles Petzold
 
-## Disclaimer
-This is an independent educational project and is not affiliated with or endorsed by Nintendo.
-Game Boy is a trademark of Nintendo. No copyrighted game ROMs or proprietary boot ROMs are distributed with this project.

@@ -13,7 +13,6 @@ static SDL_Renderer *ren;
 static SDL_Texture  *tex;
 static uint32_t pixels[XRES * YRES];
 
-// Verdes do Game Boy original (ARGB): do mais claro ao mais escuro
 static const uint32_t palette[4] = {0xFFE0F8D0, 0xFF88C070, 0xFF346856, 0xFF081820};
 
 bool ui_init(const char *title) {
@@ -51,10 +50,10 @@ bool ui_poll(void) {
     while (SDL_PollEvent(&e)) {
         if (e.type == SDL_QUIT) return false;
         if (e.type == SDL_KEYDOWN && e.key.keysym.sym == SDLK_ESCAPE) return false;
-    }
-    if ((e.type == SDL_KEYDOWN || e.type == SDL_KEYUP) && !e.key.repeat) {
-        bool down = e.type == SDL_KEYDOWN;
-        switch (e.key.keysym.sym) {
+
+        if ((e.type == SDL_KEYDOWN || e.type == SDL_KEYUP) && !e.key.repeat) {
+            bool down = e.type == SDL_KEYDOWN;
+            switch (e.key.keysym.sym) {
             case SDLK_x:         joypad_set(BTN_A, down);      break;
             case SDLK_z:         joypad_set(BTN_B, down);      break;
             case SDLK_RETURN:    joypad_set(BTN_START, down);  break;
@@ -63,9 +62,11 @@ bool ui_poll(void) {
             case SDLK_LEFT:      joypad_set(BTN_LEFT, down);   break;
             case SDLK_UP:        joypad_set(BTN_UP, down);     break;
             case SDLK_DOWN:      joypad_set(BTN_DOWN, down);   break;
+            case SDLK_F12: if (down) ui_screenshot("tela.bmp"); break;
             default: break;
             }
         }
+    }
     return true;
 }
 

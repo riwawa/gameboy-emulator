@@ -8,7 +8,7 @@ build/gameboy: $(SRC) $(wildcard include/*.h)
 	$(CC) $(CFLAGS) $(SRC) $(LDFLAGS) -o $@
 
 run: build/gameboy
-	./build/gameboy $(ROM)
+	./build/gameboy "$(ROM)"
 
 clean:
 	rm -rf build
