@@ -140,9 +140,6 @@ uint8_t cartridge_read(const Cartridge *cart, uint16_t address) {
     return cart->rom[(size_t)bank * 0x4000 + (address & 0x3FFF)];
 }
 
-// ---------------------------------------------------------------------------
-// Relógio do MBC3
-// ---------------------------------------------------------------------------
 static void rtc_second(Rtc *r) {
     // Cada registrador é um contador de N bits. O "vai-um" só sai no valor certo
     // (59, 59, 23); valores inválidos (ex.: segundos = 60..62) só incrementam,
@@ -169,7 +166,6 @@ void cartridge_tick(Cartridge *cart) {
     }
 }
 
-// Os 5 registradores como o jogo os vê (S, M, H, DL, DH)
 static void rtc_pack(const Rtc *r, uint8_t out[5]) {
     out[0] = r->s;
     out[1] = r->m;
@@ -195,9 +191,6 @@ static void rtc_write(Rtc *r, uint8_t reg, uint8_t v) {
     }
 }
 
-// ---------------------------------------------------------------------------
-// Escrita na área da ROM: são os registradores do chip
-// ---------------------------------------------------------------------------
 void cartridge_write(Cartridge *cart, uint16_t address, uint8_t value) {
     if(!cart||!cart->rom||cart->mbc==MBC_NONE) return;
 
@@ -251,9 +244,6 @@ void cartridge_write(Cartridge *cart, uint16_t address, uint8_t value) {
     }
 }
 
-// ---------------------------------------------------------------------------
-// RAM externa / relógio: A000-BFFF
-// ---------------------------------------------------------------------------
 static size_t ram_index(const Cartridge *cart, uint16_t address) {
     size_t bank = 0;
     if (cart->mbc == MBC_1)      bank = cart->mode ? cart->bank2 : 0;
@@ -297,17 +287,11 @@ void cartridge_ram_write(Cartridge *cart, uint16_t address, uint8_t value) {
     if (*p != value) { *p = value; cart->save_dirty = cart->has_battery; }   // só marca se mudou de fato
 }
 
-// ---------------------------------------------------------------------------
-// Save: a imagem é a RAM seguida do bloco do relógio (48 bytes, formato VBA/BGB):
-//   5 registradores atuais (32 bits cada), 5 "latched" (32 bits cada),
-//   e a hora real (Unix, 64 bits) em que o save foi gravado.
-// ---------------------------------------------------------------------------
 static void put32(uint8_t *p, uint32_t v) { for (int i = 0; i < 4; i++) p[i] = (uint8_t)(v >> (8 * i)); }
 static void put64(uint8_t *p, uint64_t v) { for (int i = 0; i < 8; i++) p[i] = (uint8_t)(v >> (8 * i)); }
 static uint32_t get32(const uint8_t *p) { return p[0] | (p[1] << 8) | (p[2] << 16) | ((uint32_t)p[3] << 24); }
 static uint64_t get64(const uint8_t *p) { return get32(p) | ((uint64_t)get32(p + 4) << 32); }
 
-// Avança o relógio 'secs' segundos reais (o tempo em que o console ficou desligado).
 static void rtc_advance(Rtc *r, uint64_t secs) {
     if (r->halt || r->s > 59 || r->m > 59 || r->h > 23) return;   // parado ou com valores inválidos: não mexe
     uint64_t total = r->s + 60ull * (r->m + 60ull * (r->h + 24ull * r->d)) + secs;

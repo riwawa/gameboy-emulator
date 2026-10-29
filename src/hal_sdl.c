@@ -2,6 +2,7 @@
 #include <stdio.h>
 #include <string.h>
 #include "hal_sdl.h"
+
 static uint8_t quadro[144 * 160];
 const uint8_t *hal_sdl_quadro(void) { return quadro; }
 

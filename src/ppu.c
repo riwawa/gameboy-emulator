@@ -6,26 +6,23 @@
 #define YRES          144
 #define DOTS_PER_LINE 456
 #define MODE2_DOTS    80
-#define MODE3_DOTS    172   // simplificação: na realidade varia de 172 a 289
+#define MODE3_DOTS    172  
 #define LINES         154
 
 static struct {
     Bus *bus;
-    uint32_t line_dots;   // pontos dentro da linha atual (0..455)
+    uint32_t line_dots;   
     uint32_t frames;
-    bool stat_line;       // nível anterior da linha de interrupção STAT
+    bool stat_line;     
 } ppu;
 
-// Estado da janela (reinicia a cada quadro)
-static bool win_y_cond;     // vira true quando LY == WY e fica true até o VBlank
-static uint8_t win_line;    // contador interno de linha da janela
+static bool win_y_cond;     
+static uint8_t win_line;  
 
 static void request_interrupt(int bit) { ppu.bus->if_reg |= (1u << bit); }
 
 static ppu_mode get_mode(void) { return (ppu_mode)(lcd_get()->stat & 3); }
 
-// A interrupção STAT dispara na BORDA DE SUBIDA do OU de todas as condições
-// habilitadas ("STAT blocking").
 void ppu_stat_changed(void) {
     lcd_context *l = lcd_get();
     l->stat = (l->stat & ~0x04) | (l->ly == l->lyc ? 0x04 : 0);   // flag LY==LYC
@@ -77,7 +74,6 @@ void ppu_lcd_on(void) {
 
 uint32_t ppu_frames(void) { return ppu.frames; }
 
-// Cor (0..3) de um pixel de um mapa de tiles (fundo e janela usam o mesmo código)
 static uint8_t tile_pixel(uint16_t map_base, bool unsigned_ids, uint8_t map_x, uint8_t map_y) {
     const uint8_t *vram = ppu.bus->vram;
     uint8_t id = vram[map_base + (map_y >> 3) * 32 + (map_x >> 3)];
@@ -98,7 +94,6 @@ static void render_line(void) {
 
     if (y == l->wy) win_y_cond = true;
 
-    // ---- Fundo e janela ----
     if (l->lcdc & 0x01) {
         bool unsigned_ids = (l->lcdc & 0x10) != 0;
         uint16_t bg_map = (l->lcdc & 0x08) ? 0x1C00 : 0x1800;
@@ -115,25 +110,21 @@ static void render_line(void) {
         }
     }
 
-    // ---- Sprites ----
     uint8_t obj_color[XRES] = {0};
     uint8_t obj_attr[XRES] = {0};
     if (l->lcdc & 0x02) {
         int h = (l->lcdc & 0x04) ? 16 : 8;
 
-        // 1) Seleção: os 10 primeiros sprites da OAM que cruzam esta linha
         int sel[10], n = 0;
         for (int i = 0; i < 40 && n < 10; i++) {
             int sy = b->oam[i * 4] - 16;
             if (y >= sy && y < sy + h) sel[n++] = i;
         }
-        // 2) Prioridade (DMG): menor X vence; empate: menor índice na OAM
         for (int a = 1; a < n; a++) {
             int k = sel[a], j = a - 1;
             while (j >= 0 && b->oam[sel[j] * 4 + 1] > b->oam[k * 4 + 1]) { sel[j + 1] = sel[j]; j--; }
             sel[j + 1] = k;
         }
-        // 3) Desenha do mais prioritário ao menos; o primeiro pixel opaco fica
         for (int s = 0; s < n; s++) {
             const uint8_t *o = &b->oam[sel[s] * 4];
             int sx = o[1] - 8;
@@ -156,7 +147,6 @@ static void render_line(void) {
         }
     }
 
-    // ---- Composição final ----
     for (int x = 0; x < XRES; x++) {
         bool obj_wins = obj_color[x] &&
                         !((obj_attr[x] & 0x80) && bg_idx[x] != 0);   // "BG sobre OBJ"
@@ -167,11 +157,9 @@ static void render_line(void) {
             out[x] = (l->bgp >> (bg_idx[x] * 2)) & 3;
         }
     }
-    hal_draw_line(y, out);        // entrega a linha pronta à plataforma
+    hal_draw_line(y, out);      
 }
 
-// DMA da OAM: copia 160 bytes de (value << 8) para a OAM.
-// Simplificação: copia tudo na hora, sem os 160 ciclos-M nem o bloqueio do bus.
 void ppu_oam_dma(uint8_t value) {
     for (int i = 0; i < 0xA0; i++)
         ppu.bus->oam[i] = bus_read(ppu.bus, (uint16_t)((value << 8) | i));
@@ -179,7 +167,7 @@ void ppu_oam_dma(uint8_t value) {
 
 void ppu_tick(void) {
     lcd_context *l = lcd_get();
-    if (!(l->lcdc & 0x80)) return;     // LCD desligado: a PPU para
+    if (!(l->lcdc & 0x80)) return;   
 
     ppu.line_dots++;
 
@@ -202,7 +190,7 @@ void ppu_tick(void) {
             set_mode(MODE_VBLANK);
             request_interrupt(0);
             ppu.frames++;
-        } else if (l->ly >= LINES) {   // fim do quadro
+        } else if (l->ly >= LINES) { 
             l->ly = 0;
             set_mode(MODE_OAM);
         } else if (l->ly < YRES) {

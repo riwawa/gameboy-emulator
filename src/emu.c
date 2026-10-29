@@ -46,8 +46,6 @@ bool emu_init(const uint8_t *rom, size_t size) {
     return true;
 }
 
-// Roda a emulação até a PPU terminar um quadro e DEVOLVE o controle a quem chamou.
-// Quem chama (a plataforma) decide o que fazer entre os quadros: mostrar, ler botões, esperar.
 bool emu_run_frame(void) {
     uint32_t start = ppu_frames();
     uint64_t limit = ctx.cycles + 2 * FRAME_CYCLES;   // com o LCD desligado não há quadros: não prende
