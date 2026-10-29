@@ -84,11 +84,6 @@ bool cpu_step(void) {
         return true;
     }
 
-
-    if (ctx.halted) {
-        emu_cycles(1);
-        return true;
-    }
     uint16_t pc = ctx.regs.pc;
 
     if (!cpu_fetch_instruction(&ctx)) {

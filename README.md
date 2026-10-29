@@ -22,7 +22,7 @@ The project is currently in its early stages.
 | Memory bus | In development |
 | SM83 CPU registers and context | Initial implementation |
 | Instruction decoding | In progress |
-| CPU execution | Not implemented |
+| CPU execution | Implemented (passes Blargg cpu_instrs) |
 | Interrupt handling | Planned |
 | PPU (graphics) | Planned |
 | APU (audio) | Planned |

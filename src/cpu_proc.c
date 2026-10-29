@@ -736,7 +736,9 @@ static bool proc_di(cpu_context *cpu) {
 }
 
 static bool proc_ei(cpu_context *cpu) {
-    cpu->ime_enable_delay = 2;
+    if (cpu->ime_enable_delay == 0) {
+        cpu->ime_enable_delay = 2;
+    }
     return true;
 }
 
